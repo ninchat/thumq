@@ -1,0 +1,17 @@
+package thumq;
+
+message Request
+{
+	enum Crop {
+		NO_CROP = 0;
+		TOP_SQUARE = 1;
+	};
+
+	required uint32 scale = 1;
+	optional Crop crop = 2 [default = NO_CROP];
+}
+
+message Response
+{
+	optional string original_format = 1;
+}
