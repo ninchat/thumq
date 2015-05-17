@@ -182,7 +182,7 @@ int main(int argc, char **argv)
 	zmq::socket_t socket(context, ZMQ_REP);
 
 	for (int i = 1; i < argc; i++)
-		socket.bind(argv[1]);
+		socket.bind(argv[i]);
 
 	while (true) {
 		zmq::message_t request_data;
