@@ -1,7 +1,9 @@
 #!/bin/sh
 
-uid=`id -u`
-name=`whoami`
+uid=${SUDO_UID:-`id -u`}
+name=${SUDO_USER:-`whoami`}
+
+set -e
 
 make clean
 
