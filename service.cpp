@@ -22,48 +22,92 @@ using thumq::Response;
 
 namespace {
 
-static bool receive_message_part(zmq::socket_t &socket, zmq::message_t &message)
+class IO
 {
-	while (true) {
-		try {
-			socket.recv(&message);
-			break;
-		} catch (const zmq::error_t &e) {
-			if (e.num() != EINTR)
-				throw e;
-		}
+	IO(IO &);
+	void operator=(const IO &);
+
+public:
+	/**
+	 * @param socket  for use in a single receive-send cycle.
+	 */
+	explicit IO(zmq::socket_t &socket) throw ():
+		handled(false),
+		m_socket(socket),
+		m_received(false)
+	{
 	}
 
-	while (true) {
-		try {
-			int value;
-			size_t length = sizeof value;
-			socket.getsockopt(ZMQ_RCVMORE, &value, &length);
-			return value;
-		} catch (const zmq::error_t &e) {
-			if (e.num() != EINTR)
-				throw e;
-		}
+	/**
+	 * Does nothing if a complete message hasn't been received.  Sends a
+	 * complete message (response_header and response_image) if handled, or an
+	 * incomplete message if not.
+	 */
+	~IO() throw (zmq::error_t)
+	{
+		if (!m_received)
+			return;
+
+		send_part(response_header, handled);
+
+		if (handled)
+			send_part(response_image, false);
 	}
-}
 
-static void send_message_part(zmq::socket_t &socket, zmq::message_t &message, bool more)
-{
-	int flags = 0;
+	/**
+	 * @return true if a complete message was received (request_header and
+	 *         response_image), or false if an incomplete message was received.
+	 */
+	bool receive()
+	{
+		if (receive_part(request_header)) {
+			if (receive_part(request_image)) {
+				zmq::message_t extraneous;
 
-	if (more)
-		flags |= ZMQ_SNDMORE;
+				while (receive_part(extraneous)) {
+				}
+			}
 
-	while (true) {
-		try {
-			socket.send(message, flags);
-			break;
-		} catch (const zmq::error_t &e) {
-			if (e.num() != EINTR)
-				throw e;
+			return true;
 		}
+
+		return false;
 	}
-}
+
+	zmq::message_t request_header;
+	zmq::message_t request_image;
+	zmq::message_t response_header;
+	zmq::message_t response_image;
+	bool handled;
+
+private:
+	bool receive_part(zmq::message_t &message)
+	{
+		m_socket.recv(&message);
+
+		int more;
+		size_t length = sizeof more;
+		m_socket.getsockopt(ZMQ_RCVMORE, &more, &length);
+
+		if (!more)
+			m_received = true;
+
+		return more;
+	}
+
+	void send_part(zmq::message_t &message, bool more)
+	{
+		int flags = 0;
+
+		if (more)
+			flags |= ZMQ_SNDMORE;
+
+		m_socket.send(message, flags);
+	}
+
+	zmq::socket_t &m_socket;
+	bool m_received;
+};
 
 static bool decode_request(const zmq::message_t &message, Request &request)
 {
@@ -181,50 +225,44 @@ int main(int argc, char **argv)
 	zmq::context_t context;
 	zmq::socket_t socket(context, ZMQ_REP);
 
-	for (int i = 1; i < argc; i++)
-		socket.bind(argv[i]);
+	try {
+		for (int i = 1; i < argc; i++)
+			socket.bind(argv[i]);
 
-	while (true) {
-		zmq::message_t request_data;
-		zmq::message_t input_image_data;
-		Response response;
-		zmq::message_t output_image_data;
+		while (true) {
+			IO io(socket);
 
-		if (receive_message_part(socket, request_data)) {
-			if (receive_message_part(socket, input_image_data)) {
-				zmq::message_t extraneous;
-				while (receive_message_part(socket, extraneous)) {
-				}
+			if (!io.receive()) {
+				syslog(LOG_ERR, "request message was too short");
+				continue;
 			}
 
 			Request request;
+			Response response;
 
-			if (decode_request(request_data, request)) {
-				try {
-					Magick::Blob blob(input_image_data.data(), input_image_data.size());
-					Magick::Image image(blob);
-
-					response.set_original_format(image.magick());
-					convert_image(image, request.scale(), request.crop());
-					write_jpeg(image, output_image_data);
-				} catch (const Magick::Exception &e) {
-					syslog(LOG_ERR, "%s", e.what());
-				}
-			} else {
+			if (!decode_request(io.request_header, request)) {
 				syslog(LOG_ERR, "could not decode request header");
+				continue;
 			}
-		} else {
-			syslog(LOG_ERR, "request message was too short");
-		}
 
-		zmq::message_t response_data;
-		encode_response(response, response_data);
+			try {
+				Magick::Blob blob(io.request_image.data(), io.request_image.size());
+				Magick::Image image(blob);
 
-		if (output_image_data.size() > 0) {
-			send_message_part(socket, response_data, true);
-			send_message_part(socket, output_image_data, false);
-		} else {
-			send_message_part(socket, response_data, false);
+				response.set_original_format(image.magick());
+				convert_image(image, request.scale(), request.crop());
+				write_jpeg(image, io.response_image);
+			} catch (const Magick::Exception &e) {
+				syslog(LOG_ERR, "magick: %s", e.what());
+				continue;
+			}
+
+			encode_response(response, io.response_header);
+			io.handled = true;
 		}
+	} catch (const zmq::error_t &e) {
+		syslog(LOG_CRIT, "zmq: %s", e.what());
 	}
+
+	return 1;
 }
