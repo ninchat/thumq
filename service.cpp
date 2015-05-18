@@ -109,7 +109,7 @@ private:
 	bool m_received;
 };
 
-static bool decode_request(const zmq::message_t &message, Request &request)
+static bool decode_request(zmq::message_t &message, Request &request)
 {
 	protobuf::io::ArrayInputStream array(message.data(), message.size());
 	protobuf::io::CodedInputStream coded(&array);
@@ -222,7 +222,7 @@ int main(int argc, char **argv)
 
 	Magick::InitializeMagick(argv[0]);
 
-	zmq::context_t context;
+	zmq::context_t context(1);
 	zmq::socket_t socket(context, ZMQ_REP);
 
 	try {
