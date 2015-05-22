@@ -1,6 +1,8 @@
 #ifndef THUMQ_IO_HPP
 #define THUMQ_IO_HPP
 
+#include <utility>
+
 #include <zmq.hpp>
 
 namespace thumq {
@@ -23,28 +25,27 @@ public:
 
 	/**
 	 * Does nothing if a complete message hasn't been received.  Sends a
-	 * complete message (response_header and response_image) if handled, or an
-	 * incomplete message if not.
+	 * complete message if handled, or an incomplete message if not.
 	 */
 	~IO() throw (zmq::error_t)
 	{
 		if (!m_received)
 			return;
 
-		send_part(response_header, handled);
+		send_part(response.first, handled);
 
 		if (handled)
-			send_part(response_image, false);
+			send_part(response.second, false);
 	}
 
 	/**
-	 * @return true if a complete message was received (request_header and
-	 *         response_image), or false if an incomplete message was received.
+	 * @return true if a complete message was received, or false if an
+	 *         incomplete message was received.
 	 */
 	bool receive()
 	{
-		if (receive_part(request_header)) {
-			if (receive_part(request_image)) {
+		if (receive_part(request.first)) {
+			if (receive_part(request.second)) {
 				zmq::message_t extraneous;
 
 				while (receive_part(extraneous)) {
@@ -57,10 +58,8 @@ public:
 		return false;
 	}
 
-	zmq::message_t request_header;
-	zmq::message_t request_image;
-	zmq::message_t response_header;
-	zmq::message_t response_image;
+	std::pair<zmq::message_t, zmq::message_t> request;
+	std::pair<zmq::message_t, zmq::message_t> response;
 	bool handled;
 
 private:

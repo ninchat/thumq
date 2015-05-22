@@ -153,24 +153,24 @@ int main(int argc, char **argv)
 			Request request;
 			Response response;
 
-			if (!decode_request(io.request_header, request)) {
+			if (!decode_request(io.request.first, request)) {
 				syslog(LOG_ERR, "could not decode request header");
 				continue;
 			}
 
 			try {
-				Magick::Blob blob(io.request_image.data(), io.request_image.size());
+				Magick::Blob blob(io.request.second.data(), io.request.second.size());
 				Magick::Image image(blob);
 
 				response.set_original_format(image.magick());
 				convert_image(image, request.scale(), request.crop());
-				write_jpeg(image, io.response_image);
+				write_jpeg(image, io.response.second);
 			} catch (const Magick::Exception &e) {
 				syslog(LOG_ERR, "magick: %s", e.what());
 				continue;
 			}
 
-			encode_response(response, io.response_header);
+			encode_response(response, io.response.first);
 			io.handled = true;
 		}
 	} catch (const zmq::error_t &e) {
