@@ -11,7 +11,7 @@ LIBS		+= -lzmq -lprotobuf $(shell $(PKG_CONFIG) $(MAGICKPP_PKG) --libs-only-l)
 
 sources		:= service.cpp thumq.pb.cc
 
-thumq: $(sources) thumq.pb.h
+thumq: $(sources) io.hpp thumq.pb.h
 	$(CXX) $(CPPFLAGS) $(CXXFLAGS) $(LDFLAGS) -o $@ $(sources) $(LIBS)
 
 thumq.pb.cc thumq.pb.h: thumq.proto
