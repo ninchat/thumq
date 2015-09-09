@@ -9,8 +9,8 @@ namespace thumq {
 
 class IO
 {
-	IO(IO &);
-	void operator=(const IO &);
+	IO(const IO &) = delete;
+	IO &operator=(const IO &) = delete;
 
 public:
 	/**

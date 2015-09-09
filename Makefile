@@ -5,7 +5,7 @@ PYTHON		:= python
 MAGICKPP_PKG	:= GraphicsMagick++
 
 CPPFLAGS	:= -pthread -DNDEBUG $(shell $(PKG_CONFIG) $(MAGICKPP_PKG) --cflags-only-I)
-CXXFLAGS	:= -g -Wall -O2 $(shell $(PKG_CONFIG) $(MAGICKPP_PKG) --cflags-only-other)
+CXXFLAGS	:= -std=c++11 -g -Wall -O2 $(shell $(PKG_CONFIG) $(MAGICKPP_PKG) --cflags-only-other)
 LDFLAGS		:= -pthread $(shell $(PKG_CONFIG) $(MAGICKPP_PKG) --libs-only-L)
 LIBS		:= -lzmq -lprotobuf $(shell $(PKG_CONFIG) $(MAGICKPP_PKG) --libs-only-l)
 

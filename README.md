@@ -4,7 +4,7 @@ A simple microservice for creating image thumbnails.
 
 # Dependencies
 
-- C++ compiler
+- C++11 compiler
 - GraphicsMagick++ or ImageMagick++
 - ZeroMQ
 - Protocol Buffers
