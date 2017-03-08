@@ -164,6 +164,8 @@ int main(int argc, char **argv)
 
 				response.set_original_format(image.magick());
 				convert_image(image, request.scale(), request.crop());
+				response.set_width(image.size().width());
+				response.set_height(image.size().height());
 				write_jpeg(image, io.response.second);
 			} catch (const Magick::Exception &e) {
 				syslog(LOG_ERR, "magick: %s", e.what());

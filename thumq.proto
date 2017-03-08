@@ -16,4 +16,6 @@ message Request
 message Response
 {
 	optional string original_format = 1;
+	optional uint32 width = 2;
+	optional uint32 height = 3;
 }
