@@ -110,7 +110,7 @@ static void free_blob_data(void *, void *hint)
 
 static void write_jpeg(Magick::Image &image, zmq::message_t &data)
 {
-	std::auto_ptr<Magick::Blob> blob(new Magick::Blob);
+	std::unique_ptr<Magick::Blob> blob(new Magick::Blob);
 	image.write(blob.get(), "JPEG");
 	data.rebuild(const_cast<void *> (blob->data()), blob->length(), free_blob_data, blob.get());
 	blob.release();
