@@ -27,7 +27,7 @@ public:
 	 * Does nothing if a complete message hasn't been received.  Sends a
 	 * complete message if handled, or an incomplete message if not.
 	 */
-	~IO() throw (zmq::error_t)
+	~IO() noexcept(false) // throw (zmq::error_t)
 	{
 		if (!m_received)
 			return;
