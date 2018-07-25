@@ -1,4 +1,4 @@
-syntax = "proto2";
+syntax = "proto3";
 
 package thumq;
 
@@ -9,13 +9,15 @@ message Request
 		TOP_SQUARE = 1;
 	};
 
-	required uint32 scale = 1;
-	optional Crop crop = 2 [default = NO_CROP];
+	uint32 scale = 1;
+	Crop crop = 2;
+	uint32 length = 3; // of the following image data
 }
 
 message Response
 {
-	optional string original_format = 1;
-	optional uint32 width = 2;
-	optional uint32 height = 3;
+	string original_format = 1;
+	uint32 width = 2;  // of the following image
+	uint32 height = 3; // of the following image
+	uint32 length = 4; // of the following image data
 }

@@ -17,74 +17,41 @@ public:
 	 * @param socket  for use in a single receive-send cycle.
 	 */
 	explicit IO(zmq::socket_t &socket) throw ():
-		handled(false),
 		m_socket(socket),
 		m_received(false)
 	{
 	}
 
 	/**
-	 * Does nothing if a complete message hasn't been received.  Sends a
-	 * complete message if handled, or an incomplete message if not.
+	 * Sends a message if a message has been received.
 	 */
 	~IO() noexcept(false) // throw (zmq::error_t)
 	{
-		if (!m_received)
-			return;
-
-		send_part(response.first, handled);
-
-		if (handled)
-			send_part(response.second, false);
+		if (m_received)
+			m_socket.send(response);
 	}
 
-	/**
-	 * @return true if a complete message was received, or false if an
-	 *         incomplete message was received.
-	 */
-	bool receive()
+	void receive()
 	{
-		if (receive_part(request.first)) {
-			if (receive_part(request.second)) {
-				zmq::message_t extraneous;
-
-				while (receive_part(extraneous)) {
-				}
+		if (receive_part(request)) {
+			zmq::message_t extraneous;
+			while (receive_part(extraneous)) {
 			}
-
-			return true;
 		}
-
-		return false;
+		m_received = true;
 	}
 
-	std::pair<zmq::message_t, zmq::message_t> request;
-	std::pair<zmq::message_t, zmq::message_t> response;
-	bool handled;
+	zmq::message_t request;
+	zmq::message_t response;
 
 private:
 	bool receive_part(zmq::message_t &message)
 	{
 		m_socket.recv(&message);
-
 		int more;
 		size_t length = sizeof more;
 		m_socket.getsockopt(ZMQ_RCVMORE, &more, &length);
-
-		if (!more)
-			m_received = true;
-
 		return more;
-	}
-
-	void send_part(zmq::message_t &message, bool more)
-	{
-		int flags = 0;
-
-		if (more)
-			flags |= ZMQ_SNDMORE;
-
-		m_socket.send(message, flags);
 	}
 
 	zmq::socket_t &m_socket;

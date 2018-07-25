@@ -1,15 +1,14 @@
-#!/usr/bin/env python
-
-from __future__ import absolute_import, print_function
+#!/usr/bin/env python3
 
 import argparse
 import base64
 import os
+import signal
 import subprocess
 import sys
 import tempfile
-import time
 import webbrowser
+from struct import pack, unpack
 from contextlib import closing
 
 import zmq
@@ -25,6 +24,7 @@ compiledir = tempfile.mkdtemp()
 try:
     subprocess.check_call([protoc, "--python_out", compiledir, "thumq.proto"])
     sys.path.insert(0, compiledir)
+    sys.dont_write_bytecode = True
     import thumq_pb2
     sys.path.pop(0)
 finally:
@@ -46,10 +46,10 @@ def main():
     request = thumq_pb2.Request()
     request.scale = args.scale
 
+    crop = "no-crop"
     if args.top_square:
         request.crop = thumq_pb2.Request.TOP_SQUARE
-
-    request_data = request.SerializeToString()
+        crop = "top-square"
 
     service = subprocess.Popen(["./thumq", socket_addr])
     try:
@@ -59,29 +59,38 @@ def main():
                 socket.connect(socket_addr)
 
                 for kind in ["Landscape", "Portrait"]:
-                    for num in xrange(1, 8 + 1):
+                    for num in range(1, 8 + 1):
                         filename = "{}_{}.jpg".format(kind, num)
                         filepath = os.path.join(imagedir, filename)
 
-                        with open(filepath) as f:
+                        with open(filepath, "rb") as f:
                             input_data = f.read()
 
-                        socket.send_multipart([request_data, input_data])
-                        response_data, output_data = socket.recv_multipart()
+                        request.length = len(input_data)
+                        request_data = request.SerializeToString()
 
-                        response = thumq_pb2.Response.FromString(response_data)
+                        socket.send(pack("<I", len(request_data)) + request_data + input_data)
+
+                        response_data = socket.recv()
+                        response_size, = unpack("<I", response_data[:4])
+                        response = thumq_pb2.Response.FromString(response_data[4:4 + response_size])
                         assert response.original_format == "JPEG"
+                        assert response.width > 0
+                        assert response.height > 0
+                        output_data = response_data[4 + response_size:]
+                        assert response.length == len(output_data)
                         assert output_data
 
                         if args.browser:
-                            output_b64 = base64.standard_b64encode(output_data)
+                            output_b64 = base64.standard_b64encode(output_data).decode()
                             webbrowser.open_new_tab("data:image/jpeg;base64," + output_b64)
-
-                            time.sleep(1)
+                        else:
+                            with open(filepath.replace(imagedir + "/", "test-output/" + crop + "/"), "wb") as f:
+                                f.write(output_data)
         finally:
             context.term()
     finally:
-        service.terminate()
+        os.kill(service.pid, signal.SIGINT)
         service.wait()
 
         os.remove(socket_path)
