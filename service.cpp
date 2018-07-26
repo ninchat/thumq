@@ -20,6 +20,8 @@
 #include <google/protobuf/io/coded_stream.h>
 #include <google/protobuf/io/zero_copy_stream_impl_lite.h>
 
+#include <magic.h>
+
 #include <Magick++.h>
 
 #include "io.hpp"
@@ -30,6 +32,8 @@ namespace protobuf = google::protobuf;
 using namespace thumq;
 
 namespace {
+
+static magic_t magic_cookie;
 
 static bool decode_request(const char *data, size_t size, Request &request)
 {
@@ -134,17 +138,25 @@ static int child_process(const zmq::message_t &request_data, int response_fd)
 	if (request.length() != request_data.size() - 4 - header_size)
 		return 6;
 
-	Magick::Blob orig_blob(reinterpret_cast<const char *> (request_data.data()) + 4 + header_size, request.length());
-	Magick::Image image(orig_blob);
+	auto image_data = reinterpret_cast<const char *> (request_data.data()) + 4 + header_size;
+	const char *mimetype = magic_buffer(magic_cookie, image_data, request.length());
 	Response response;
-
-	response.set_original_format(image.magick());
-	convert_image(image, request.scale(), request.crop());
-	response.set_width(image.size().width());
-	response.set_height(image.size().height());
-
 	Magick::Blob nail_blob;
-	image.write(&nail_blob, "JPEG");
+
+	if (strcmp(mimetype, "image/bmp") == 0 ||
+	    strcmp(mimetype, "image/gif") == 0 ||
+	    strcmp(mimetype, "image/jpeg") == 0 ||
+	    strcmp(mimetype, "image/png") == 0) {
+		Magick::Blob orig_blob(image_data, request.length());
+		Magick::Image image(orig_blob);
+
+		response.set_original_format(image.magick());
+		convert_image(image, request.scale(), request.crop());
+		response.set_width(image.size().width());
+		response.set_height(image.size().height());
+		image.write(&nail_blob, "JPEG");
+	}
+
 	response.set_length(nail_blob.length());
 
 	char response_data[4 + response.ByteSize()];
@@ -231,6 +243,12 @@ int main(int argc, char **argv)
 		progname = argv[0];
 
 	openlog(progname, LOG_CONS | LOG_NDELAY | LOG_PID, LOG_USER);
+
+	magic_cookie = magic_open(MAGIC_MIME_TYPE);
+	if (magic_load(magic_cookie, nullptr) < 0) {
+		syslog(LOG_CRIT, "magic: %s", strerror(errno));
+		return 1;
+	}
 
 	Magick::InitializeMagick(argv[0]);
 

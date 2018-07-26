@@ -58,27 +58,37 @@ def main():
             with closing(context.socket(zmq.REQ)) as socket:
                 socket.connect(socket_addr)
 
+                files = []
+
                 for kind in ["Landscape", "Portrait"]:
                     for num in range(1, 8 + 1):
                         filename = "{}_{}.jpg".format(kind, num)
                         filepath = os.path.join(imagedir, filename)
+                        files.append((filepath, True))
 
-                        with open(filepath, "rb") as f:
-                            input_data = f.read()
+                files.append(("test.pdf", False))
 
-                        request.length = len(input_data)
-                        request_data = request.SerializeToString()
+                for filepath, expect_thumbnail in files:
+                    print(filepath)
 
-                        socket.send(pack("<I", len(request_data)) + request_data + input_data)
+                    with open(filepath, "rb") as f:
+                        input_data = f.read()
 
-                        response_data = socket.recv()
-                        response_size, = unpack("<I", response_data[:4])
-                        response = thumq_pb2.Response.FromString(response_data[4:4 + response_size])
+                    request.length = len(input_data)
+                    request_data = request.SerializeToString()
+
+                    socket.send(pack("<I", len(request_data)) + request_data + input_data)
+
+                    response_data = socket.recv()
+                    response_size, = unpack("<I", response_data[:4])
+                    response = thumq_pb2.Response.FromString(response_data[4:4 + response_size])
+                    output_data = response_data[4 + response_size:]
+                    assert response.length == len(output_data)
+
+                    if expect_thumbnail:
                         assert response.original_format == "JPEG"
                         assert response.width > 0
                         assert response.height > 0
-                        output_data = response_data[4 + response_size:]
-                        assert response.length == len(output_data)
                         assert output_data
 
                         if args.browser:
@@ -87,6 +97,11 @@ def main():
                         else:
                             with open(filepath.replace(imagedir + "/", "test-output/" + crop + "/"), "wb") as f:
                                 f.write(output_data)
+                    else:
+                        assert not response.original_format
+                        assert not response.width
+                        assert not response.height
+                        assert not output_data
         finally:
             context.term()
     finally:
