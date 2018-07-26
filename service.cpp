@@ -175,14 +175,18 @@ static int child_process(const zmq::message_t &request_data, int response_fd)
 	    strcmp(mimetype, "image/gif") == 0 ||
 	    strcmp(mimetype, "image/jpeg") == 0 ||
 	    strcmp(mimetype, "image/png") == 0) {
-		Magick::Blob orig_blob(image_data, request.length());
-		Magick::Image image(orig_blob);
+		try {
+			Magick::Blob orig_blob(image_data, request.length());
+			Magick::Image image(orig_blob);
 
-		response.set_original_format(mimetype);
-		convert_image(image, request.scale(), request.crop());
-		response.set_width(image.size().width());
-		response.set_height(image.size().height());
-		image.write(&nail_blob, "JPEG");
+			convert_image(image, request.scale(), request.crop());
+			image.write(&nail_blob, "JPEG");
+			response.set_width(image.size().width());
+			response.set_height(image.size().height());
+			response.set_original_format(mimetype);
+		} catch (const Magick::Exception &) {
+			// ignore
+		}
 	}
 
 	response.set_length(nail_blob.length());
