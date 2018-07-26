@@ -9,6 +9,7 @@ import sys
 import tempfile
 import webbrowser
 from contextlib import closing
+from struct import pack, unpack
 
 import zmq
 
@@ -45,8 +46,10 @@ def main():
     request = thumq_pb2.Request()
     request.scale = args.scale
 
+    crop = "no-crop"
     if args.top_square:
         request.crop = thumq_pb2.Request.TOP_SQUARE
+        crop = "top-square"
 
     request_data = request.SerializeToString()
 
@@ -57,24 +60,46 @@ def main():
             with closing(context.socket(zmq.REQ)) as socket:
                 socket.connect(socket_addr)
 
+                files = []
+
                 for kind in ["Landscape", "Portrait"]:
                     for num in range(1, 8 + 1):
                         filename = "{}_{}.jpg".format(kind, num)
                         filepath = os.path.join(imagedir, filename)
+                        files.append((filepath, True))
 
-                        with open(filepath, "rb") as f:
-                            input_data = f.read()
+                files.append(("test.pdf", False))
 
-                        socket.send_multipart([request_data, input_data])
-                        response_data, output_data = socket.recv_multipart()
+                for filepath, expect_thumbnail in files:
+                    print(filepath)
 
-                        response = thumq_pb2.Response.FromString(response_data)
+                    with open(filepath, "rb") as f:
+                        input_data = f.read()
+
+                    request_data = request.SerializeToString()
+
+                    socket.send_multipart([request_data, input_data])
+                    response_data, output_data = socket.recv_multipart()
+
+                    response = thumq_pb2.Response.FromString(response_data)
+
+                    if expect_thumbnail:
                         assert response.original_format == "JPEG"
+                        assert response.width > 0
+                        assert response.height > 0
                         assert output_data
 
                         if args.browser:
                             output_b64 = base64.standard_b64encode(output_data).decode()
                             webbrowser.open_new_tab("data:image/jpeg;base64," + output_b64)
+                        else:
+                            with open(filepath.replace(imagedir + "/", "test-output/" + crop + "/"), "wb") as f:
+                                f.write(output_data)
+                    else:
+                        assert not response.original_format
+                        assert not response.width
+                        assert not response.height
+                        assert not output_data
         finally:
             context.term()
     finally:

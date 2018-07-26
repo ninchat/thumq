@@ -11,6 +11,8 @@
 #include <google/protobuf/io/coded_stream.h>
 #include <google/protobuf/io/zero_copy_stream_impl_lite.h>
 
+#include <magic.h>
+
 #include <Magick++.h>
 
 #include "io.hpp"
@@ -21,6 +23,8 @@ namespace protobuf = google::protobuf;
 using namespace thumq;
 
 namespace {
+
+static magic_t magic_cookie;
 
 static bool decode_request(zmq::message_t &message, Request &request)
 {
@@ -106,6 +110,7 @@ static void free_blob_data(void *, void *hint)
 {
 	Magick::Blob *blob = reinterpret_cast<Magick::Blob *> (hint);
 	delete blob;
+
 }
 
 static void write_jpeg(Magick::Image &image, zmq::message_t &data)
@@ -133,6 +138,12 @@ int main(int argc, char **argv)
 
 	openlog(progname, LOG_CONS | LOG_NDELAY | LOG_PID, LOG_USER);
 
+	magic_cookie = magic_open(MAGIC_MIME_TYPE);
+	if (magic_load(magic_cookie, nullptr) < 0) {
+		syslog(LOG_CRIT, "magic: %s", strerror(errno));
+		return 1;
+	}
+
 	Magick::InitializeMagick(argv[0]);
 
 	zmq::context_t context(1);
@@ -158,18 +169,25 @@ int main(int argc, char **argv)
 				continue;
 			}
 
-			try {
-				Magick::Blob blob(io.request.second.data(), io.request.second.size());
-				Magick::Image image(blob);
+			const char *mimetype = magic_buffer(magic_cookie, io.request.second.data(), io.request.second.size());
 
-				response.set_original_format(image.magick());
-				convert_image(image, request.scale(), request.crop());
-				response.set_width(image.size().width());
-				response.set_height(image.size().height());
-				write_jpeg(image, io.response.second);
-			} catch (const Magick::Exception &e) {
-				syslog(LOG_ERR, "magick: %s", e.what());
-				continue;
+			if (mimetype && (strcmp(mimetype, "image/bmp") == 0 ||
+			                 strcmp(mimetype, "image/gif") == 0 ||
+			                 strcmp(mimetype, "image/jpeg") == 0 ||
+			                 strcmp(mimetype, "image/png") == 0)) {
+				try {
+					Magick::Blob blob(io.request.second.data(), io.request.second.size());
+					Magick::Image image(blob);
+
+					response.set_original_format(image.magick());
+					convert_image(image, request.scale(), request.crop());
+					response.set_width(image.size().width());
+					response.set_height(image.size().height());
+					write_jpeg(image, io.response.second);
+				} catch (const Magick::Exception &e) {
+					syslog(LOG_ERR, "magick: %s", e.what());
+					continue;
+				}
 			}
 
 			encode_response(response, io.response.first);
