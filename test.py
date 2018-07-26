@@ -86,7 +86,7 @@ def main():
                     assert response.length == len(output_data)
 
                     if expect_thumbnail:
-                        assert response.original_format == "JPEG"
+                        assert response.original_format == "image/jpeg"
                         assert response.width > 0
                         assert response.height > 0
                         assert output_data

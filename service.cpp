@@ -178,7 +178,7 @@ static int child_process(const zmq::message_t &request_data, int response_fd)
 		Magick::Blob orig_blob(image_data, request.length());
 		Magick::Image image(orig_blob);
 
-		response.set_original_format(image.magick());
+		response.set_original_format(mimetype);
 		convert_image(image, request.scale(), request.crop());
 		response.set_width(image.size().width());
 		response.set_height(image.size().height());
