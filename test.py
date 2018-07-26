@@ -66,11 +66,11 @@ def main():
                     for num in range(1, 8 + 1):
                         filename = "{}_{}.jpg".format(kind, num)
                         filepath = os.path.join(imagedir, filename)
-                        files.append((filepath, True))
+                        files.append((filepath, "image/jpeg", True))
 
-                files.append(("test.pdf", False))
+                files.append(("test.pdf", "application/pdf", False))
 
-                for filepath, expect_thumbnail in files:
+                for filepath, expect_type, expect_thumbnail in files:
                     print(filepath)
 
                     with open(filepath, "rb") as f:
@@ -84,9 +84,9 @@ def main():
                     response = thumq_pb2.Response.FromString(response_data)
 
                     if expect_thumbnail:
-                        assert response.original_format == "JPEG"
-                        assert response.width > 0
-                        assert response.height > 0
+                        assert response.source_type == expect_type
+                        assert response.nail_width in range(1, args.scale + 1)
+                        assert response.nail_height in range(1, args.scale + 1)
                         assert output_data
 
                         if args.browser:
@@ -96,9 +96,9 @@ def main():
                             with open(filepath.replace(imagedir + "/", "test-output/" + crop + "/"), "wb") as f:
                                 f.write(output_data)
                     else:
-                        assert not response.original_format
-                        assert not response.width
-                        assert not response.height
+                        assert response.source_type == expect_type
+                        assert not response.nail_width
+                        assert not response.nail_height
                         assert not output_data
         finally:
             context.term()

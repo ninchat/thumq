@@ -171,6 +171,8 @@ int main(int argc, char **argv)
 
 			const char *mimetype = magic_buffer(magic_cookie, io.request.second.data(), io.request.second.size());
 
+			response.set_source_type(mimetype);
+
 			if (mimetype && (strcmp(mimetype, "image/bmp") == 0 ||
 			                 strcmp(mimetype, "image/gif") == 0 ||
 			                 strcmp(mimetype, "image/jpeg") == 0 ||
@@ -179,10 +181,9 @@ int main(int argc, char **argv)
 					Magick::Blob blob(io.request.second.data(), io.request.second.size());
 					Magick::Image image(blob);
 
-					response.set_original_format(image.magick());
 					convert_image(image, request.scale(), request.crop());
-					response.set_width(image.size().width());
-					response.set_height(image.size().height());
+					response.set_nail_width(image.size().width());
+					response.set_nail_height(image.size().height());
 					write_jpeg(image, io.response.second);
 				} catch (const Magick::Exception &e) {
 					syslog(LOG_ERR, "magick: %s", e.what());
