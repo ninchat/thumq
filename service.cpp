@@ -15,6 +15,8 @@
 #include <syslog.h>
 #include <unistd.h>
 
+#include <seccomp.h>
+
 #include <zmq.hpp>
 
 #include <google/protobuf/io/coded_stream.h>
@@ -34,6 +36,29 @@ using namespace thumq;
 namespace {
 
 static magic_t magic_cookie;
+
+static int init_seccomp()
+{
+	scmp_filter_ctx ctx = seccomp_init(SCMP_ACT_KILL);
+	if (ctx == nullptr)
+		return -1;
+
+	int retval = -1;
+
+	if (seccomp_rule_add(ctx, SCMP_ACT_ALLOW, SCMP_SYS(access), 0) == 0 &&
+	    seccomp_rule_add(ctx, SCMP_ACT_ALLOW, SCMP_SYS(brk), 0) == 0 &&
+	    seccomp_rule_add(ctx, SCMP_ACT_ALLOW, SCMP_SYS(clock_gettime), 0) == 0 &&
+	    seccomp_rule_add(ctx, SCMP_ACT_ALLOW, SCMP_SYS(exit_group), 0) == 0 &&
+	    seccomp_rule_add(ctx, SCMP_ACT_ALLOW, SCMP_SYS(times), 0) == 0 &&
+	    seccomp_rule_add(ctx, SCMP_ACT_ALLOW, SCMP_SYS(write), 0) == 0 &&
+	    seccomp_rule_add(ctx, SCMP_ACT_ERRNO(ENOMEM), SCMP_SYS(mmap), 0) == 0 &&
+	    seccomp_load(ctx) == 0) {
+		retval = 0;
+	}
+
+	seccomp_release(ctx);
+	return retval;
+}
 
 static bool decode_request(const char *data, size_t size, Request &request)
 {
@@ -121,6 +146,9 @@ static void write_full(int fd, const void *data, ssize_t size)
 
 static int child_process(const zmq::message_t &request_data, int response_fd)
 {
+	if (init_seccomp() < 0)
+		return 1;
+
 	if (request_data.size() < 4)
 		return 2;
 
@@ -185,7 +213,7 @@ static void handle(const zmq::message_t &request, zmq::message_t &response)
 		try {
 			_exit(child_process(request, fds[1]));
 		} catch (...) {
-			_exit(1);
+			_exit(99);
 		}
 	}
 

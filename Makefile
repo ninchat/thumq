@@ -2,7 +2,7 @@ PKG_CONFIG	:= pkg-config
 PROTOC		:= protoc
 PYTHON		:= python3
 
-PKGS		:= protobuf GraphicsMagick++
+PKGS		:= libseccomp protobuf GraphicsMagick++
 
 CPPFLAGS	:= -pthread -DNDEBUG $(shell $(PKG_CONFIG) $(PKGS) --cflags-only-I)
 CXXFLAGS	:= -std=c++11 -g -Wall -O2 $(shell $(PKG_CONFIG) $(PKGS) --cflags-only-other)
