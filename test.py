@@ -1,14 +1,12 @@
-#!/usr/bin/env python
-
-from __future__ import absolute_import, print_function
+#!/usr/bin/env python3
 
 import argparse
 import base64
 import os
+import signal
 import subprocess
 import sys
 import tempfile
-import time
 import webbrowser
 from contextlib import closing
 
@@ -25,6 +23,7 @@ compiledir = tempfile.mkdtemp()
 try:
     subprocess.check_call([protoc, "--python_out", compiledir, "thumq.proto"])
     sys.path.insert(0, compiledir)
+    sys.dont_write_bytecode = True
     import thumq_pb2
     sys.path.pop(0)
 finally:
@@ -59,11 +58,11 @@ def main():
                 socket.connect(socket_addr)
 
                 for kind in ["Landscape", "Portrait"]:
-                    for num in xrange(1, 8 + 1):
+                    for num in range(1, 8 + 1):
                         filename = "{}_{}.jpg".format(kind, num)
                         filepath = os.path.join(imagedir, filename)
 
-                        with open(filepath) as f:
+                        with open(filepath, "rb") as f:
                             input_data = f.read()
 
                         socket.send_multipart([request_data, input_data])
@@ -74,14 +73,12 @@ def main():
                         assert output_data
 
                         if args.browser:
-                            output_b64 = base64.standard_b64encode(output_data)
+                            output_b64 = base64.standard_b64encode(output_data).decode()
                             webbrowser.open_new_tab("data:image/jpeg;base64," + output_b64)
-
-                            time.sleep(1)
         finally:
             context.term()
     finally:
-        service.terminate()
+        os.kill(service.pid, signal.SIGINT)
         service.wait()
 
         os.remove(socket_path)
