@@ -98,6 +98,9 @@ static void convert_image(Magick::Image &image, int scale, Request::Crop crop)
 			width = height;
 		}
 		break;
+
+	default: // Avoid warning caused by generated protobuf code.
+		break;
 	}
 
 	if (width > scale || height > scale)
