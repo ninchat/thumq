@@ -1,4 +1,3 @@
 test-output/
+test.socket
 thumq
-thumq.pb.cc
-thumq.pb.h

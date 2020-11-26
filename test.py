@@ -4,17 +4,16 @@ import argparse
 import base64
 import os
 import signal
+import socket
 import subprocess
 import sys
 import tempfile
+import time
 import webbrowser
 from contextlib import closing
 from struct import pack, unpack
 
-import zmq
-
-socket_path = "test.socket"
-socket_addr = "ipc://" + socket_path
+socket_path = "./test.socket"
 
 imagedir = "exif-orientation-examples"
 
@@ -53,60 +52,67 @@ def main():
 
     request_data = request.SerializeToString()
 
-    service = subprocess.Popen(["./thumq", socket_addr])
+    service = subprocess.Popen(["./thumq", socket_path])
     try:
-        context = zmq.Context()
-        try:
-            with closing(context.socket(zmq.REQ)) as socket:
-                socket.connect(socket_addr)
+        for _ in range(10):
+            if os.path.exists(socket_path):
+                break
+            time.sleep(0.2)
 
-                files = []
+        files = []
 
-                for kind in ["Landscape", "Portrait"]:
-                    for num in range(1, 8 + 1):
-                        filename = "{}_{}.jpg".format(kind, num)
-                        filepath = os.path.join(imagedir, filename)
-                        files.append((filepath, "image/jpeg", True))
+        for kind in ["Landscape", "Portrait"]:
+            for num in range(1, 8 + 1):
+                filename = "{}_{}.jpg".format(kind, num)
+                filepath = os.path.join(imagedir, filename)
+                files.append((filepath, "image/jpeg", True))
 
-                files.append(("test.pdf", "application/pdf", False))
+        files.append(("test.pdf", "", False))
 
-                for filepath, expect_type, expect_thumbnail in files:
-                    print(filepath)
+        for filepath, expect_type, expect_thumbnail in files:
+            print(filepath)
 
-                    with open(filepath, "rb") as f:
-                        input_data = f.read()
+            sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM | socket.SOCK_CLOEXEC)
+            with closing(sock):
+                sock.connect(socket_path)
 
-                    request_data = request.SerializeToString()
+                send(sock, request_data)
+                with open(filepath, "rb") as f:
+                    send(sock, f.read())
 
-                    socket.send_multipart([request_data, input_data])
-                    response_data, output_data = socket.recv_multipart()
+                response = thumq_pb2.Response.FromString(receive(sock))
+                output_data = receive(sock)
 
-                    response = thumq_pb2.Response.FromString(response_data)
+                if expect_thumbnail:
+                    assert response.source_type == expect_type, response
+                    assert response.nail_width in range(1, args.scale + 1), response
+                    assert response.nail_height in range(1, args.scale + 1), response
+                    assert output_data
 
-                    if expect_thumbnail:
-                        assert response.source_type == expect_type
-                        assert response.nail_width in range(1, args.scale + 1)
-                        assert response.nail_height in range(1, args.scale + 1)
-                        assert output_data
-
-                        if args.browser:
-                            output_b64 = base64.standard_b64encode(output_data).decode()
-                            webbrowser.open_new_tab("data:image/jpeg;base64," + output_b64)
-                        else:
-                            with open(filepath.replace(imagedir + "/", "test-output/" + crop + "/"), "wb") as f:
-                                f.write(output_data)
+                    if args.browser:
+                        output_b64 = base64.standard_b64encode(output_data).decode()
+                        webbrowser.open_new_tab("data:image/jpeg;base64," + output_b64)
                     else:
-                        assert response.source_type == expect_type
-                        assert not response.nail_width
-                        assert not response.nail_height
-                        assert not output_data
-        finally:
-            context.term()
+                        with open(filepath.replace(imagedir + "/", "test-output/" + crop + "/"), "wb") as f:
+                            f.write(output_data)
+                else:
+                    assert response.source_type == expect_type, response
+                    assert not response.nail_width, response
+                    assert not response.nail_height, response
+                    assert not output_data
     finally:
         os.kill(service.pid, signal.SIGINT)
         service.wait()
 
-        os.remove(socket_path)
+
+def send(sock, data):
+    sock.send(pack("<I", len(data)))
+    sock.send(data)
+
+
+def receive(sock):
+    size, = unpack("<I", sock.recv(4))
+    return sock.recv(size)
 
 
 if __name__ == "__main__":

@@ -2,8 +2,9 @@ syntax = "proto3";
 
 package thumq;
 
-message Request
-{
+option go_package = "github.com/ninchat/thumq";
+
+message Request {
 	enum Crop {
 		NO_CROP = 0;
 		TOP_SQUARE = 1;
@@ -13,9 +14,8 @@ message Request
 	Crop crop = 2;
 }
 
-message Response
-{
-	string source_type = 1; // any MIME type; not necessarily image/*
+message Response {
+	string source_type = 1;
 	uint32 nail_width = 2;
 	uint32 nail_height = 3;
 }
