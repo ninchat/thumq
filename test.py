@@ -67,7 +67,7 @@ def main():
                 filepath = os.path.join(imagedir, filename)
                 files.append((filepath, "image/jpeg", True))
 
-        files.append(("test.pdf", "", False))
+        files.append(("test.pdf", "application/pdf", False))
 
         for filepath, expect_type, expect_thumbnail in files:
             print(filepath)

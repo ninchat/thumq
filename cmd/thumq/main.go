@@ -16,6 +16,7 @@ import (
 	"io"
 	"log"
 	"net"
+	"net/http"
 	"os"
 	"os/signal"
 	"sync"
@@ -159,6 +160,7 @@ func process(req *thumq.Request, data []byte) (*thumq.Response, []byte) {
 
 	m, format, err := image.Decode(bytes.NewReader(data))
 	if err != nil {
+		res.SourceType = detectMIMEType(data)
 		return res, nil
 	}
 
@@ -284,6 +286,16 @@ func scale(m image.Image, scale int) image.Image {
 	}
 
 	return m
+}
+
+func detectMIMEType(data []byte) string {
+	switch mime := http.DetectContentType(data); mime {
+	case "application/octet-stream": // Unknown, really.
+		return ""
+
+	default:
+		return mime
+	}
 }
 
 func check(err error) {
