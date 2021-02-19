@@ -182,8 +182,10 @@ func process(req *thumq.Request, data []byte) (*thumq.Response, []byte) {
 	case "bmp", "gif", "png":
 		res.SourceType = "image/" + format
 
-	default:
-		panic(format)
+	default: // Imports may have registerd unexpected handlers.
+		log.Print("decoded image in unsupported format:", format)
+		res.SourceType = detectMIMEType(data)
+		return res, nil
 	}
 
 	m = convert(m, req, res, ori)
