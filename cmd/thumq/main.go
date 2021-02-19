@@ -23,8 +23,8 @@ import (
 	"sync/atomic"
 	"syscall"
 
-	jpegstructure "github.com/dsoprea/go-jpeg-image-structure"
 	"github.com/disintegration/imaging"
+	jpegstructure "github.com/dsoprea/go-jpeg-image-structure"
 	"github.com/ninchat/thumq"
 	_ "golang.org/x/image/bmp"
 	"google.golang.org/protobuf/proto"
@@ -35,8 +35,8 @@ const exifTagIDOrientation = 0x112
 type orientation uint16
 
 const (
-	_ orientation = iota
-	orientationTopLeft // Upper left.
+	_                  orientation = iota
+	orientationTopLeft             // Upper left.
 	orientationTopRight
 	orientationBottomRight // Lower right.
 	orientationBottomLeft
@@ -46,7 +46,7 @@ const (
 	orientationLeftBottom // Lower left.
 )
 
-type subImager interface{
+type subImager interface {
 	SubImage(image.Rectangle) image.Image
 }
 
