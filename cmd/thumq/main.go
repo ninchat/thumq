@@ -51,8 +51,13 @@ type subImager interface {
 }
 
 func main() {
+	log.SetFlags(0)
+
+	returned := false
+
 	defer func() {
-		if x := recover(); x != nil {
+		if !returned {
+			x := recover()
 			if err, ok := x.(error); ok {
 				log.Fatal(err)
 			} else {
@@ -61,8 +66,11 @@ func main() {
 		}
 	}()
 
-	log.SetFlags(0)
+	panickyMain()
+	returned = true
+}
 
+func panickyMain() {
 	flag.Parse()
 	if flag.NArg() != 1 {
 		panic(errors.New("need exactly one argument: listen socket filename"))
