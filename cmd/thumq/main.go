@@ -27,6 +27,7 @@ import (
 	jpegstructure "github.com/dsoprea/go-jpeg-image-structure"
 	"github.com/ninchat/thumq"
 	_ "golang.org/x/image/bmp"
+	_ "golang.org/x/image/tiff"
 	"google.golang.org/protobuf/proto"
 )
 
@@ -179,7 +180,7 @@ func process(req *thumq.Request, data []byte) (*thumq.Response, []byte) {
 		res.SourceType = "image/jpeg"
 		ori = parseJPEGOrientation(data)
 
-	case "bmp", "gif", "png":
+	case "bmp", "gif", "png", "tiff":
 		res.SourceType = "image/" + format
 
 	default: // Imports may have registerd unexpected handlers.
