@@ -78,7 +78,7 @@ func panickyMain() {
 	}
 	address := flag.Arg(0)
 
-	signals := make(chan os.Signal)
+	signals := make(chan os.Signal, 1)
 	signal.Notify(signals, syscall.SIGINT, syscall.SIGTERM)
 	signal.Ignore(syscall.SIGPIPE)
 
