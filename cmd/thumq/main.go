@@ -15,6 +15,7 @@ import (
 	_ "image/png"
 	"io"
 	"log"
+	"math"
 	"net"
 	"net/http"
 	"os"
@@ -153,6 +154,10 @@ func receive(conn net.Conn) []byte {
 }
 
 func send(conn net.Conn, buf []byte) {
+	if len(buf) > math.MaxUint32 {
+		panic("result image data is too large")
+	}
+
 	size := make([]byte, 4)
 	binary.LittleEndian.PutUint32(size, uint32(len(buf)))
 
