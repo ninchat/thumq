@@ -12,6 +12,7 @@ import (
 	"image"
 	_ "image/gif"
 	"image/jpeg"
+	"image/png"
 	_ "image/png"
 	"io"
 	"log"
@@ -130,13 +131,16 @@ func handle(conn net.Conn) {
 	req := new(thumq.Request)
 	check(proto.Unmarshal(receive(conn), req))
 
-	res, data := process(req, receive(conn))
+	res, nail, conv := process(req, receive(conn))
 
 	head, err := proto.Marshal(res)
 	check(err)
 
 	send(conn, head)
-	send(conn, data)
+	send(conn, nail)
+	if req.Convert {
+		send(conn, conv)
+	}
 }
 
 func receive(conn net.Conn) []byte {
@@ -168,36 +172,63 @@ func send(conn net.Conn, buf []byte) {
 	check(err)
 }
 
-func process(req *thumq.Request, data []byte) (*thumq.Response, []byte) {
+func process(req *thumq.Request, data []byte) (*thumq.Response, []byte, []byte) {
 	res := new(thumq.Response)
 
 	m, format, err := image.Decode(bytes.NewReader(data))
 	if err != nil {
 		res.SourceType = detectMIMEType(data)
-		return res, nil
+		return res, nil, nil
 	}
 
 	var ori orientation
+	var lossy bool
 
 	switch format {
 	case "jpeg":
 		res.SourceType = "image/jpeg"
 		ori = parseJPEGOrientation(data)
+		lossy = true
 
 	case "bmp", "gif", "png":
 		res.SourceType = "image/" + format
 
-	default: // Imports may have registerd unexpected handlers.
+	default: // Imports may have registered unexpected handlers.
 		log.Print("decoded image in unsupported format:", format)
 		res.SourceType = detectMIMEType(data)
-		return res, nil
+		return res, nil, nil
 	}
 
-	m = convert(m, req, res, ori)
+	m = fixOrientation(m, ori)
 
-	buf := new(bytes.Buffer)
-	check(jpeg.Encode(buf, m, nil))
-	return res, buf.Bytes()
+	conv := new(bytes.Buffer)
+	if req.Convert {
+		if lossy {
+			check(jpeg.Encode(conv, m, nil))
+			res.ConvType = "image/jpeg"
+		} else {
+			check(png.Encode(conv, m))
+			res.ConvType = "image/png"
+		}
+
+		size := m.Bounds()
+		res.ConvWidth = uint32(size.Dx())
+		res.ConvHeight = uint32(size.Dy())
+	}
+
+	if req.Crop == thumq.Request_TOP_SQUARE {
+		m = cropTopSquare(m)
+	}
+	m = scale(m, int(req.Scale))
+
+	nail := new(bytes.Buffer)
+	check(jpeg.Encode(nail, m, nil))
+
+	size := m.Bounds()
+	res.NailWidth = uint32(size.Dx())
+	res.NailHeight = uint32(size.Dy())
+
+	return res, nail.Bytes(), conv.Bytes()
 }
 
 func parseJPEGOrientation(data []byte) (ori orientation) {
@@ -218,21 +249,6 @@ func parseJPEGOrientation(data []byte) (ori orientation) {
 	}
 
 	return
-}
-
-func convert(m image.Image, req *thumq.Request, res *thumq.Response, ori orientation) image.Image {
-	m = fixOrientation(m, ori)
-
-	if req.Crop == thumq.Request_TOP_SQUARE {
-		m = cropTopSquare(m)
-	}
-
-	m = scale(m, int(req.Scale))
-
-	size := m.Bounds()
-	res.NailWidth = uint32(size.Dx())
-	res.NailHeight = uint32(size.Dy())
-	return m
 }
 
 func fixOrientation(m image.Image, ori orientation) image.Image {

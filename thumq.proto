@@ -12,10 +12,14 @@ message Request {
 
 	uint32 scale = 1;
 	Crop crop = 2;
+	bool convert = 3;
 }
 
 message Response {
 	string source_type = 1;
 	uint32 nail_width = 2;
 	uint32 nail_height = 3;
+	string conv_type = 4;
+	uint32 conv_width = 5;
+	uint32 conv_height = 6;
 }

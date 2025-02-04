@@ -39,16 +39,21 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--browser", action="store_true", help="open result images in web browser tabs")
     parser.add_argument("--top-square", action="store_true", help="enable cropping")
-    parser.add_argument("scale", type=int, help="maximum width/height of result image")
+    parser.add_argument("--convert", action="store_true", help="convert also in original size and display it (if --browser)")
+    parser.add_argument("--scale", type=int, default=128, help="maximum width/height of thumbnail")
     args = parser.parse_args()
 
     request = thumq_pb2.Request()
     request.scale = args.scale
+    request.convert = args.convert
 
-    crop = "no-crop"
-    if args.top_square:
+    if args.convert:
+        mode = "convert"
+    elif args.top_square:
         request.crop = thumq_pb2.Request.TOP_SQUARE
-        crop = "top-square"
+        mode = "top-square"
+    else:
+        mode = "no-crop"
 
     request_data = request.SerializeToString()
 
@@ -81,25 +86,38 @@ def main():
                     send(sock, f.read())
 
                 response = thumq_pb2.Response.FromString(receive(sock))
-                output_data = receive(sock)
+                nail_data = receive(sock)
+                if args.convert:
+                    conv_data = receive(sock)
 
                 if expect_thumbnail:
                     assert response.source_type == expect_type, response
                     assert response.nail_width in range(1, args.scale + 1), response
                     assert response.nail_height in range(1, args.scale + 1), response
-                    assert output_data
+                    assert nail_data
+
+                    if args.convert:
+                        assert response.conv_type in ("image/jpeg", "image/png")
+                        assert response.conv_width > 0
+                        assert response.conv_height > 0
+                        assert conv_data
+                        data = conv_data
+                        mime = response.conv_type
+                    else:
+                        data = nail_data
+                        mime = "image/jpeg"
 
                     if args.browser:
-                        output_b64 = base64.standard_b64encode(output_data).decode()
-                        webbrowser.open_new_tab("data:image/jpeg;base64," + output_b64)
+                        output_b64 = base64.standard_b64encode(data).decode()
+                        webbrowser.open_new_tab(f"data:{mime};base64,{output_b64}")
                     else:
-                        with open(filepath.replace(imagedir + "/", "test-output/" + crop + "/"), "wb") as f:
-                            f.write(output_data)
+                        with open(filepath.replace(f"{imagedir}/", f"test-output/{mode}/"), "wb") as f:
+                            f.write(data)
                 else:
                     assert response.source_type == expect_type, response
                     assert not response.nail_width, response
                     assert not response.nail_height, response
-                    assert not output_data
+                    assert not nail_data
     finally:
         os.kill(service.pid, signal.SIGINT)
         service.wait()
@@ -111,8 +129,8 @@ def send(sock, data):
 
 
 def receive(sock):
-    size, = unpack("<I", sock.recv(4))
-    return sock.recv(size)
+    size, = unpack("<I", sock.recv(4, socket.MSG_WAITALL))
+    return sock.recv(size, socket.MSG_WAITALL)
 
 
 if __name__ == "__main__":
