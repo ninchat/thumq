@@ -72,7 +72,7 @@ def main():
         for filepath, expect_type, expect_thumbnail in files:
             print(filepath)
 
-            sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM | socket.SOCK_CLOEXEC)
+            sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
             with closing(sock):
                 sock.connect(socket_path)
 
