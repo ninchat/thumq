@@ -25,6 +25,7 @@ import (
 	"sync/atomic"
 	"syscall"
 
+	_ "github.com/adrium/goheif"
 	"github.com/disintegration/imaging"
 	jpegstructure "github.com/dsoprea/go-jpeg-image-structure"
 	"github.com/ninchat/thumq"
@@ -190,7 +191,7 @@ func process(req *thumq.Request, data []byte) (*thumq.Response, []byte, []byte) 
 		ori = parseJPEGOrientation(data)
 		lossy = true
 
-	case "bmp", "gif", "png":
+	case "bmp", "gif", "heic", "png":
 		res.SourceType = "image/" + format
 
 	default: // Imports may have registered unexpected handlers.
