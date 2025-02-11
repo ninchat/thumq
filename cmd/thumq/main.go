@@ -12,7 +12,6 @@ import (
 	"image"
 	_ "image/gif"
 	"image/jpeg"
-	"image/png"
 	_ "image/png"
 	"io"
 	"log"
@@ -183,13 +182,11 @@ func process(req *thumq.Request, data []byte) (*thumq.Response, []byte, []byte) 
 	}
 
 	var ori orientation
-	var lossy bool
 
 	switch format {
 	case "jpeg":
 		res.SourceType = "image/jpeg"
 		ori = parseJPEGOrientation(data)
-		lossy = true
 
 	case "bmp", "gif", "heic", "png":
 		res.SourceType = "image/" + format
@@ -204,13 +201,8 @@ func process(req *thumq.Request, data []byte) (*thumq.Response, []byte, []byte) 
 
 	conv := new(bytes.Buffer)
 	if req.Convert {
-		if lossy {
-			check(jpeg.Encode(conv, m, nil))
-			res.ConvType = "image/jpeg"
-		} else {
-			check(png.Encode(conv, m))
-			res.ConvType = "image/png"
-		}
+		check(jpeg.Encode(conv, m, nil))
+		res.ConvType = "image/jpeg"
 
 		size := m.Bounds()
 		res.ConvWidth = uint32(size.Dx())
