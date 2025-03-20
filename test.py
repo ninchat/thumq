@@ -11,6 +11,8 @@ import tempfile
 import time
 import webbrowser
 from contextlib import closing
+from os import makedirs
+from os.path import dirname, join
 from struct import pack, unpack
 
 socket_path = "./test.socket"
@@ -72,6 +74,8 @@ def main():
                 filepath = os.path.join(imagedir, filename)
                 files.append((filepath, "image/jpeg", True))
 
+        files.append(("test.heic", "image/heic", True))
+        files.append(("test.heif", "image/heic", True))
         files.append(("test.pdf", "application/pdf", False))
 
         for filepath, expect_type, expect_thumbnail in files:
@@ -90,8 +94,9 @@ def main():
                 if args.convert:
                     conv_data = receive(sock)
 
+                assert response.source_type == expect_type, response
+
                 if expect_thumbnail:
-                    assert response.source_type == expect_type, response
                     assert response.nail_width in range(1, args.scale + 1), response
                     assert response.nail_height in range(1, args.scale + 1), response
                     assert nail_data
@@ -111,10 +116,11 @@ def main():
                         output_b64 = base64.standard_b64encode(data).decode()
                         webbrowser.open_new_tab(f"data:{mime};base64,{output_b64}")
                     else:
-                        with open(filepath.replace(f"{imagedir}/", f"test-output/{mode}/"), "wb") as f:
+                        targetname = join("test-output", mode, filepath)
+                        makedirs(dirname(targetname), exist_ok=True)
+                        with open(targetname, "wb") as f:
                             f.write(data)
                 else:
-                    assert response.source_type == expect_type, response
                     assert not response.nail_width, response
                     assert not response.nail_height, response
                     assert not nail_data
