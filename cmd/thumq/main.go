@@ -24,7 +24,7 @@ import (
 	"sync/atomic"
 	"syscall"
 
-	_ "github.com/adrium/goheif"
+	_ "github.com/jdeng/goheif"
 	"github.com/disintegration/imaging"
 	jpegstructure "github.com/dsoprea/go-jpeg-image-structure"
 	"github.com/ninchat/thumq"
