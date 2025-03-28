@@ -24,9 +24,9 @@ import (
 	"sync/atomic"
 	"syscall"
 
-	_ "github.com/adrium/goheif"
 	"github.com/disintegration/imaging"
 	jpegstructure "github.com/dsoprea/go-jpeg-image-structure"
+	"github.com/gen2brain/heic"
 	"github.com/ninchat/thumq"
 	_ "golang.org/x/image/bmp"
 	"google.golang.org/protobuf/proto"
@@ -82,6 +82,8 @@ func panickyMain() {
 	signals := make(chan os.Signal, 1)
 	signal.Notify(signals, syscall.SIGINT, syscall.SIGTERM)
 	signal.Ignore(syscall.SIGPIPE)
+
+	heic.Init()
 
 	listener, err := net.Listen("unix", address)
 	check(err)
@@ -176,6 +178,12 @@ func process(req *thumq.Request, data []byte) (*thumq.Response, []byte, []byte) 
 	res := new(thumq.Response)
 
 	m, format, err := image.Decode(bytes.NewReader(data))
+	if err != nil {
+		m, err = heic.Decode(bytes.NewReader(data))
+		if err == nil {
+			format = "heic"
+		}
+	}
 	if err != nil {
 		res.SourceType = detectMIMEType(data)
 		return res, nil, nil

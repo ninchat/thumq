@@ -3,8 +3,7 @@ PROTOC		:= protoc
 PYTHON		:= python3
 
 build:
-	$(GO) generate
-	$(GO) build -o thumq ./cmd/thumq
+	$(GO) build -tags nodynamic -o thumq ./cmd/thumq
 
 check: build
 	rm -rf test-output
