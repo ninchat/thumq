@@ -3,7 +3,6 @@ PROTOC		:= protoc
 PYTHON		:= python3
 
 build:
-	$(GO) generate
 	$(GO) build -o thumq ./cmd/thumq
 
 check: build
