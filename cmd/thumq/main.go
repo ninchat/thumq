@@ -24,10 +24,10 @@ import (
 	"sync/atomic"
 	"syscall"
 
-	_ "github.com/adrium/goheif"
 	"github.com/disintegration/imaging"
 	jpegstructure "github.com/dsoprea/go-jpeg-image-structure"
 	"github.com/ninchat/thumq"
+	_ "github.com/strukturag/libheif/go/heif"
 	_ "golang.org/x/image/bmp"
 	"google.golang.org/protobuf/proto"
 )
@@ -188,7 +188,7 @@ func process(req *thumq.Request, data []byte) (*thumq.Response, []byte, []byte) 
 		res.SourceType = "image/jpeg"
 		ori = parseJPEGOrientation(data)
 
-	case "bmp", "gif", "heic", "png":
+	case "bmp", "gif", "heif", "png":
 		res.SourceType = "image/" + format
 
 	default: // Imports may have registered unexpected handlers.

@@ -74,8 +74,8 @@ def main():
                 filepath = os.path.join(imagedir, filename)
                 files.append((filepath, "image/jpeg", True))
 
-        files.append(("test.heic", "image/heic", True))
-        files.append(("test.heif", "image/heic", True))
+        files.append(("test.heic", "image/heif", True))
+        files.append(("test.heif", "image/heif", True))
         files.append(("test.pdf", "application/pdf", False))
 
         for filepath, expect_type, expect_thumbnail in files:
