@@ -6,7 +6,7 @@ require (
 	github.com/disintegration/imaging v1.6.2
 	github.com/dsoprea/go-jpeg-image-structure v0.0.0-20221012074422-4f3f7e934102
 	github.com/strukturag/libheif v1.17.6
-	golang.org/x/image v0.38.0
+	golang.org/x/image v0.41.0
 	google.golang.org/protobuf v1.36.1
 )
 
